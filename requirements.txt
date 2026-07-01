@@ -1,13 +1,18 @@
-# mc_city — Windows 运行依赖
-# 测试环境：Python 3.9.13 + Windows 11
-# 安装：python -m pip install -r requirements.txt
+1# mc_city — runtime dependencies
+# Tested on: Python 3.9.13 + Windows 11 (requires Python >= 3.9)
+# Install:   python -m pip install -r requirements.txt
 #
-# 注：tkinter 是 Python 标准库（scan_gui 用），随官方安装器自带，无需在此列出。
-# Minecraft 端需另装 GDMC HTTP Interface mod（Fabric/Forge），并在游戏内开服。
+# Note: tkinter is part of the Python standard library (used by scan_gui) and
+#       ships with the official installer, so it is not listed here.
+#       On the Minecraft side you must also install the GDMC HTTP Interface mod
+#       (Fabric/Forge) and have a world open.
+#
+# Verified: the packages below are the complete set of third-party imports in
+#           this project — nothing is missing.
 
-numpy>=2.0,<3
-scipy>=1.13,<2
-requests>=2.32,<3
-tqdm>=4.67,<5
-gdpc>=8.1,<91
-litemapy>=0.11,<1   # 读 Litematica .litematic 投影 → component npy（scan/litematic_import）
+numpy>=2.0,<3          # voxel arrays, height maps, all numeric/mask math (core)
+scipy>=1.13,<2         # terrain analysis filters (ndimage) + road net Delaunay/MST (spatial, sparse)
+requests>=2.32,<3      # direct GDMC HTTP calls to read/write blocks (mc/placement, scan/scanner)
+tqdm>=4.67,<5          # generation progress bar (main, scanner)
+gdpc>=8.1,<91          # GDMC HTTP client: buildArea / players / version / runCommand
+litemapy>=0.11,<1      # read Litematica .litematic projections -> component npy (scan/litematic_import tool only; main pipeline does not need it)
