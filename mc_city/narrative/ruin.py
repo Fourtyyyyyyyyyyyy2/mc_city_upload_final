@@ -603,7 +603,7 @@ def apply_ruin(center_x: int, center_z: int,
 
     if RUIN_STORM:
         _set_apocalypse_weather()
-        print("   ⛈️  末日天气：雷暴 + 午夜常驻")
+        print("   ⛈️  末日天气：雷暴 + 白天常驻")
 
     # 主动劈几道闪电（在避雷针处），配合雷暴天持续落雷。
     if rod_pts and strikes_n > 0:

@@ -37,7 +37,7 @@ Terrain analysis produces reusable feature layers such as:
 - slope map
 - roughness map
 - ridge mask
-- terrain style classification
+- terrain style classification (produced separately by `build_terrain_map`)
 
 These layers guide center selection, road planning, building placement, landmark placement, and ruin staging. Buildings and landmarks avoid invalid columns and unsuitable terrain unless a specific fallback system can safely prepare the area.
 
