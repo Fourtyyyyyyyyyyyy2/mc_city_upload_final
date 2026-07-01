@@ -1,4 +1,4 @@
-1# mc_city — runtime dependencies
+# mc_city - runtime dependencies
 # Tested on: Python 3.9.13 + Windows 11 (requires Python >= 3.9)
 # Install:   python -m pip install -r requirements.txt
 #
@@ -7,12 +7,12 @@
 #       On the Minecraft side you must also install the GDMC HTTP Interface mod
 #       (Fabric/Forge) and have a world open.
 #
-# Verified: the packages below are the complete set of third-party imports in
-#           this project — nothing is missing.
+# Verified: the packages below are the complete set of third-party imports
+#           in this project - nothing is missing.
 
-numpy>=2.0,<3          # voxel arrays, height maps, all numeric/mask math (core)
-scipy>=1.13,<2         # terrain analysis filters (ndimage) + road net Delaunay/MST (spatial, sparse)
-requests>=2.32,<3      # direct GDMC HTTP calls to read/write blocks (mc/placement, scan/scanner)
-tqdm>=4.67,<5          # generation progress bar (main, scanner)
-gdpc>=8.1,<91          # GDMC HTTP client: buildArea / players / version / runCommand
-litemapy>=0.11,<1      # read Litematica .litematic projections -> component npy (scan/litematic_import tool only; main pipeline does not need it)
+numpy>=2.0,<3
+scipy>=1.13,<2
+requests>=2.32,<3
+tqdm>=4.67,<5
+gdpc>=8.1,<91
+litemapy>=0.11,<1
