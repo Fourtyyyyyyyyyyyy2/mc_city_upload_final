@@ -1,0 +1,10 @@
+data/
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+*.zip
+*.bak
+*.bak*
+.pytest_cache/
+.mypy_cache/

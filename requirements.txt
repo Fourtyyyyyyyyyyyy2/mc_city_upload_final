@@ -1,0 +1,13 @@
+# mc_city — Windows 运行依赖
+# 测试环境：Python 3.9.13 + Windows 11
+# 安装：python -m pip install -r requirements.txt
+#
+# 注：tkinter 是 Python 标准库（scan_gui 用），随官方安装器自带，无需在此列出。
+# Minecraft 端需另装 GDMC HTTP Interface mod（Fabric/Forge），并在游戏内开服。
+
+numpy>=2.0,<3
+scipy>=1.13,<2
+requests>=2.32,<3
+tqdm>=4.67,<5
+gdpc>=8.1,<91
+litemapy>=0.11,<1   # 读 Litematica .litematic 投影 → component npy（scan/litematic_import）
