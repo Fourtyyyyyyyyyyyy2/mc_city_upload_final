@@ -1,4 +1,6 @@
-data/
+# 忽略 data/ 里的世界扫描缓存（运行时重建），但保留手动维护的分类表
+data/*
+!data/block_class_map_from_blocks_json.json
 __pycache__/
 *.py[cod]
 *.pyo
