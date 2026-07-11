@@ -20,8 +20,6 @@ Areas built:
 - Sunflower Plains & Cherry Hill
 - Savanna Valley
 
-An in-game book titled **"GDMC 2026 Cities"** contains clickable teleport links to
-the centre of each generated settlement.
 
 ##  Running the generator
 
