@@ -5,13 +5,13 @@ Procedural "soul-tree city-state" generator for the
 settlement-generation competition. It grows a ruined city around a giant soul
 tree, adapting buildings, roads and landmarks to the surrounding terrain.
 
-## 📦 Generated map (GDMC 2026 submission)
+##  Generated map (GDMC 2026 submission)
 
 The four official evaluation areas were generated on the single official map
 (Java Edition **1.21.11**, seed `-1846931519`, default world type). Download the
 resulting world here:
 
-**➡️ [Download the generated map (Dropbox)](https://www.dropbox.com/scl/fi/8yjx28r7g2rlitiytt7mi/GDMC2026.zip?rlkey=n02ys4jux12cnh1971lkt14jb&st=6jdirok0&dl=0)**
+**[Download the generated map (Dropbox)](https://www.dropbox.com/scl/fi/8yjx28r7g2rlitiytt7mi/GDMC2026.zip?rlkey=n02ys4jux12cnh1971lkt14jb&st=6jdirok0&dl=0)**
 
 Areas built:
 
@@ -23,7 +23,7 @@ Areas built:
 An in-game book titled **"GDMC 2026 Cities"** contains clickable teleport links to
 the centre of each generated settlement.
 
-## ▶️ Running the generator
+##  Running the generator
 
 See **[README_RUN.txt](README_RUN.txt)** for full setup/run steps and
 **[GENERATOR_OVERVIEW.md](GENERATOR_OVERVIEW.md)** for how it works.
