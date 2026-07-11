@@ -42,6 +42,8 @@ from ..config import (
     LANDMARK_SPECS,
     LANDMARK_STYLE_OVERRIDES_ENABLED,
     LANDMARK_STYLE_SPECS,
+    LANDMARK_WATER_ALWAYS_ENABLED,
+    LANDMARK_WATER_MIN_FRAC,
     OUTER_RING_END_R,
     SEA_LEVEL,
     WATER_MONSTER_SINK_DEPTH,
@@ -123,7 +125,11 @@ def _floating_corners_ok(bx, bz, sx, sz, center_x, center_z,
 
 
 def _footprint_has_water(features, sx0, sz0, sx1, sz1) -> bool:
-    return bool(features.is_water[sz0:sz1 + 1, sx0:sx1 + 1].any())
+    patch = features.is_water[sz0:sz1 + 1, sx0:sx1 + 1]
+    if patch.size == 0:
+        return False
+    # 原为 .any()（1 格水即通过）→ 大地标搁浅。改为水占比 ≥ 阈值才算水域。
+    return bool(patch.mean() >= LANDMARK_WATER_MIN_FRAC)
 
 
 _BASE_OFFSET_CACHE: dict[str, int] = {}
@@ -187,16 +193,21 @@ def _resolve_landmark_specs(center_x: int, center_z: int,
     if not style or style == "chinese":
         return LANDMARK_SPECS
 
+    # 水域标志物（破船 / bloop 海怪）独立于建筑风格，前置补回，避免被风格 specs 整体
+    # 替换掉（无水的 footprint 会在放置阶段自动跳过）。
+    water_specs = ([s for s in LANDMARK_SPECS if s.get("requires_water")]
+                   if LANDMARK_WATER_ALWAYS_ENABLED else [])
+
     for current in (style,):
         specs = LANDMARK_STYLE_SPECS.get(current)
         if specs:
-            print(f"   地标风格: {style} -> {current}")
-            return specs
+            print(f"   地标风格: {style} -> {current}（+水地标 {len(water_specs)}）")
+            return water_specs + specs
     for current in ENV_BUILDING_STYLE_FALLBACKS.get(style, ()):
         specs = LANDMARK_STYLE_SPECS.get(current)
         if specs:
-            print(f"   地标风格: {style} -> {current}")
-            return specs
+            print(f"   地标风格: {style} -> {current}（+水地标 {len(water_specs)}）")
+            return water_specs + specs
     return LANDMARK_SPECS
 
 

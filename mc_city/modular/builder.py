@@ -26,7 +26,8 @@ MAX_BUILDING_X = 16
 MAX_BUILDING_Z = 16
 FLOOR_HEIGHT = 4
 MIN_SUITABILITY = 0.45
-TERRAIN_NAMES = ["plains", "desert", "mountain", "snow", "water", "jungle", "badlands"]
+TERRAIN_NAMES = ["plains", "desert", "mountain", "snow", "water", "jungle",
+                 "badlands", "volcano"]
 
 
 # ══════════════════════════════════════════════════════════════════

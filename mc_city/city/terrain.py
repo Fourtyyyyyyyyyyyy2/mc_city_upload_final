@@ -1,11 +1,13 @@
 """地形分类与材质映射。
 
-地形枚举：0=plains, 1=desert, 2=mountain, 3=snow, 4=water
+地形枚举：0=plains, 1=desert, 2=mountain, 3=snow, 4=water, 5=jungle,
+6=badlands, 7=volcano
 """
 from __future__ import annotations
 
 import numpy as np
 
+from ..config import VOLCANO_TERRAIN_ENABLED
 from ..mc.blocks import (
     AIR_BLOCK,
     classify_surface,
@@ -16,7 +18,8 @@ from ..mc.blocks import (
 )
 from ..mc.codec import BlockCodec
 
-TERRAIN_NAMES = ["plains", "desert", "mountain", "snow", "water", "jungle", "badlands"]
+TERRAIN_NAMES = ["plains", "desert", "mountain", "snow", "water", "jungle",
+                 "badlands", "volcano"]
 TERRAIN_ENUM = {
     "plains": 0,
     "desert": 1,
@@ -25,6 +28,7 @@ TERRAIN_ENUM = {
     "water": 4,
     "jungle": 5,
     "badlands": 6,
+    "volcano": 7,
 }
 
 # 地形 → (柱身填充材质, 顶层材质)
@@ -35,7 +39,17 @@ _TERRAIN_FILL = {
     "water":    ("minecraft:gravel",      "minecraft:gravel"),
     "jungle":   ("minecraft:rooted_dirt", "minecraft:moss_block"),
     "badlands": ("minecraft:red_sandstone", "minecraft:red_sand"),
+    # 火山：黑石柱身 + 玄武岩顶（不用 magma_block 当顶，避免踩到掉血）。
+    "volcano":  ("minecraft:blackstone",  "minecraft:basalt"),
 }
+
+
+def _classify_terrain(name: str) -> str:
+    """classify_surface + flag 归一化：VOLCANO_TERRAIN_ENABLED 关时 volcano→mountain。"""
+    t = classify_surface(name)
+    if t == "volcano" and not VOLCANO_TERRAIN_ENABLED:
+        return "mountain"
+    return t
 
 
 def get_terrain_fill_blocks(terrain_type: str) -> tuple[str, str]:
@@ -123,7 +137,7 @@ def build_terrain_map(scan_volume: np.ndarray,
             block_codes = scan_volume[ys_idx, zs_idx, xs_idx]
             for i in range(len(zs_idx)):
                 name = codec.decode(int(block_codes[i]))
-                t = classify_surface(name)
+                t = _classify_terrain(name)
                 if t == "plains" and jungle_hint[zs_idx[i], xs_idx[i]]:
                     t = "jungle"
                 result[zs_idx[i], xs_idx[i]] = TERRAIN_ENUM.get(t, 0)
@@ -142,7 +156,7 @@ def build_terrain_map(scan_volume: np.ndarray,
                         and not is_surface_decor_block(bid)):
                     surface_id = bid
                     break
-            t = classify_surface(surface_id)
+            t = _classify_terrain(surface_id)
             if t == "plains" and jungle_hint:
                 t = "jungle"
             result[zs, xs] = TERRAIN_ENUM.get(t, 0)

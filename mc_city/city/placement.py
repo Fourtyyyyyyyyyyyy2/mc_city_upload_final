@@ -54,6 +54,39 @@ def footprint_xz(npy_path: str, rotation_deg: int) -> tuple[int, int]:
     return int(sx), int(sz)
 
 
+_BASE_MASK_CACHE: dict[tuple, np.ndarray] = {}
+
+
+def component_base_mask(npy_path: str, rotation_deg: int = 0,
+                        base_layers: int = 4) -> np.ndarray:
+    """组件"底座占用列" mask（scan 坐标 (sz,sx) 对齐 footprint_xz）。
+
+    取最低 base_layers 层任意非空的列 → 内部填洞（binary_fill_holes，含水池镂空）
+    → 组件真实接地轮廓。给 force_platform/talus 用，只在轮廓下建地基、空气角落留原地形。
+    """
+    key = (npy_path, rotation_deg % 360, int(base_layers))
+    if key in _BASE_MASK_CACHE:
+        return _BASE_MASK_CACHE[key]
+    from scipy import ndimage
+    vol = np.load(npy_path, allow_pickle=True)          # (Y, Z, X)
+    NY = vol.shape[0]
+    k = max(1, min(int(base_layers), NY))
+    occ = np.zeros(vol.shape[1:], dtype=bool)           # (Z, X)
+    for y in range(k):
+        layer = vol[y]
+        for zz in range(layer.shape[0]):
+            for xx in range(layer.shape[1]):
+                b = layer[zz, xx]
+                bid = b.get("id", "minecraft:air") if isinstance(b, dict) else str(b)
+                if bid != "minecraft:air":
+                    occ[zz, xx] = True
+    occ = ndimage.binary_fill_holes(occ)                # 填水池等内部镂空
+    if rotation_deg % 360:
+        occ = np.rot90(occ, k=(rotation_deg // 90) % 4)
+    _BASE_MASK_CACHE[key] = occ
+    return occ
+
+
 def make_box_from_center(cx: int, cz: int, sx: int, sz: int,
                          padding: int = 0) -> tuple[int, int, int, int]:
     """中心 + 尺寸 → 包围盒 (min_x, max_x, min_z, max_z)，闭区间。"""

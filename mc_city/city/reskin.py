@@ -93,6 +93,20 @@ _STONE_REMAP: dict[str, dict[str, str]] = {
         "minecraft:cobblestone_slab": "minecraft:stone_slab",
         # stone 无 wall → cobblestone_wall 保留不换
     },
+    # 火山：黑石（blackstone）+ 磨制黑石砖。变体在 1.21 齐全（stairs/slab/wall 都有）。
+    "blackstone": {
+        "minecraft:cobblestone": "minecraft:blackstone",
+        "minecraft:cobblestone_stairs": "minecraft:blackstone_stairs",
+        "minecraft:cobblestone_slab": "minecraft:blackstone_slab",
+        "minecraft:cobblestone_wall": "minecraft:blackstone_wall",
+        "minecraft:stone": "minecraft:blackstone",
+        "minecraft:stone_bricks": "minecraft:polished_blackstone_bricks",
+        "minecraft:stone_brick_stairs": "minecraft:polished_blackstone_brick_stairs",
+        "minecraft:stone_brick_slab": "minecraft:polished_blackstone_brick_slab",
+        "minecraft:stone_brick_wall": "minecraft:polished_blackstone_brick_wall",
+        "minecraft:stone_stairs": "minecraft:blackstone_stairs",
+        "minecraft:stone_slab": "minecraft:blackstone_slab",
+    },
     # 海上：深海晶（dark_prismarine）+ 海晶砖。dark_prismarine 无 wall → 用 prismarine_wall。
     "dark_prismarine": {
         "minecraft:cobblestone": "minecraft:dark_prismarine",

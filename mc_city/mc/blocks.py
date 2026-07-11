@@ -197,13 +197,27 @@ def is_surface_decor_block(bid: str) -> bool:
     return bid in _SURFACE_DECOR_BLOCKS
 
 
+# 火山/熔岩台地（Caldera 等）地表方块。识别为独立 "volcano" 地形，供深色石
+# reskin + 蒸汽朋克建筑 + 焦黑树换肤使用。deepslate 保留给 mountain（普通地下
+# 也常见），tuff 不列入（普通山地也会露头，避免误判）。
+VOLCANO_SURFACE_BLOCKS = {
+    "minecraft:basalt", "minecraft:polished_basalt", "minecraft:smooth_basalt",
+    "minecraft:blackstone", "minecraft:polished_blackstone",
+    "minecraft:gilded_blackstone", "minecraft:magma_block",
+    "minecraft:obsidian", "minecraft:crying_obsidian",
+}
+
+
 def classify_surface(bid: str) -> str:
-    """根据表面方块名推断地形类型：plains/desert/snow/mountain/water。"""
+    """根据表面方块名推断地形类型：plains/desert/snow/mountain/water/volcano。"""
     if is_jungle_hint_block_id(bid):
         return "jungle"
 
     if bid in {"minecraft:water"}:
         return "water"
+
+    if bid in VOLCANO_SURFACE_BLOCKS:
+        return "volcano"
 
     if "terracotta" in bid or bid in {"minecraft:red_sand", "minecraft:red_sandstone"}:
         return "badlands"

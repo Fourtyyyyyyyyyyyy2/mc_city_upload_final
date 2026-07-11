@@ -21,6 +21,9 @@ from ..config import (
     FOUNDATION_STRATEGY,
     PLATFORM_CLEARANCE,
     SEA_LEVEL,
+    TALUS_APRON_MAX_FILL,
+    TALUS_APRON_MAX_REACH,
+    TALUS_APRON_RUN_PER_DROP,
     TERRAFORM_DEFAULT_STRATEGY,
     TERRAFORM_MAX_CUT,
     TERRAFORM_MAX_FILL,
@@ -153,7 +156,8 @@ def terraform_force_platform(footprint_xz: tuple,
                              ctx: ScanContext,
                              terrain_map: Optional[np.ndarray] = None,
                              strategy: str = FOUNDATION_STRATEGY,
-                             clearance: int = PLATFORM_CLEARANCE
+                             clearance: int = PLATFORM_CLEARANCE,
+                             column_mask: Optional[np.ndarray] = None
                              ) -> TerraformResult:
     """强制平台兜底：无 cut/fill 上限，保证 footprint 一定能平整出地基。
 
@@ -173,9 +177,19 @@ def terraform_force_platform(footprint_xz: tuple,
 
     patch = height_map[sz0:sz1 + 1, sx0:sx1 + 1].astype(np.int32)
     miny = int(ctx.min_y)
-    valid = patch > miny
+    h_local, w_local = patch.shape
+    # column_mask（组件底座轮廓）：只在 mask 内的列建地基，空气角落留原地形。
+    # 尺寸不匹配则忽略（退化为整框）。
+    if (column_mask is not None
+            and column_mask.shape == (h_local, w_local)):
+        cmask = column_mask.astype(bool)
+    else:
+        cmask = np.ones((h_local, w_local), dtype=bool)
+    valid = (patch > miny) & cmask
     if valid.any():
-        base_y = _pick_base_y(patch[valid], strategy)   # 只用有效列定基准
+        base_y = _pick_base_y(patch[valid], strategy)   # 只用 mask 内有效列定基准
+    elif (patch > miny).any():
+        base_y = _pick_base_y(patch[patch > miny], strategy)
     else:
         base_y = int(SEA_LEVEL)                          # 全 sentinel：无参考，退海平面
     clr = max(1, int(clearance))
@@ -183,9 +197,10 @@ def terraform_force_platform(footprint_xz: tuple,
 
     fill_blocks: list = []
     cut_blocks: list = []
-    h_local, w_local = patch.shape
     for dz in range(h_local):
         for dx in range(w_local):
+            if not cmask[dz, dx]:
+                continue                                 # mask 外：不建地基，留原地形
             sx = sx0 + dx
             sz = sz0 + dz
             xw, zw = ctx.s2w(sx, sz)
@@ -207,6 +222,91 @@ def terraform_force_platform(footprint_xz: tuple,
     return TerraformResult(
         success=True, base_y=int(base_y),
         fill_blocks=fill_blocks, cut_blocks=cut_blocks, reason="force_platform")
+
+
+def terraform_talus_apron(footprint_xz: tuple,
+                          base_y: int,
+                          height_map: np.ndarray,
+                          ctx: ScanContext,
+                          terrain_map: Optional[np.ndarray] = None,
+                          run_per_drop: int = TALUS_APRON_RUN_PER_DROP,
+                          max_reach: int = TALUS_APRON_MAX_REACH,
+                          max_fill: int = TALUS_APRON_MAX_FILL,
+                          column_mask: Optional[np.ndarray] = None,
+                          ) -> TerraformResult:
+    """从 footprint 边缘向外「生长」的堆积坡（talus）裙，消平台悬空墙、与地形融合。
+
+    grassfire BFS：footprint 边界为源、高度=base_y，每向外一格降 1/run_per_drop；
+    每列碰到真实地面（apron 高度≤ground）即收；填土差>max_fill（悬崖）则止步不填。
+    只填不凿、地形材质。返回 TerraformResult(fill only)，喂 apply_terraform 提交。
+    """
+    from collections import deque
+
+    sx0, sz0, sx1, sz1 = (int(v) for v in footprint_xz)
+    NZ, NX = height_map.shape
+    if sx0 > sx1 or sz0 > sz1:
+        return TerraformResult(success=False, base_y=int(base_y),
+                               reason="empty_footprint")
+    miny = int(ctx.min_y)
+    run = max(1, int(run_per_drop))
+    drop = 1.0 / run                       # 每格水平的下降高度
+    fill_block, top_block = _pick_materials(terrain_map, sx0, sz0, sx1, sz1)
+
+    # 源：footprint 内（column_mask 内）所有列，高度=base_y，标记 visited、不填
+    # （它们是平台本身）。给了 mask → 只从底座轮廓的列长 apron，空气角落不外扩。
+    hh = sz1 - sz0 + 1
+    ww = sx1 - sx0 + 1
+    use_mask = (column_mask is not None and column_mask.shape == (hh, ww))
+    height = {}
+    q = deque()
+    for sz in range(max(0, sz0), min(NZ, sz1 + 1)):
+        for sx in range(max(0, sx0), min(NX, sx1 + 1)):
+            if use_mask and not bool(column_mask[sz - sz0, sx - sx0]):
+                continue
+            height[(sz, sx)] = float(base_y)
+            q.append((sz, sx))
+
+    fill_blocks: list = []
+    n_cols = 0
+    while q:
+        sz, sx = q.popleft()
+        h = height[(sz, sx)]
+        nh = h - drop
+        if base_y - nh > max_reach:        # 竖直下降超上限 → 不再外扩
+            continue
+        for dz, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nz, nxx = sz + dz, sx + dx
+            if nz < 0 or nz >= NZ or nxx < 0 or nxx >= NX:
+                continue
+            if (nz, nxx) in height:        # 已访问（BFS 均匀权→首次即最高）
+                continue
+            ground = int(height_map[nz, nxx])
+            if ground <= miny:             # sentinel：地面未知（多为上坡高地）→ 让地形，收
+                height[(nz, nxx)] = nh
+                continue
+            if nh <= ground:               # apron 已降到地面 → 收，地形接管
+                height[(nz, nxx)] = nh
+                continue
+            top = int(nh)                  # floor
+            if top <= ground:
+                height[(nz, nxx)] = nh
+                continue
+            if top - ground > max_fill:    # 悬崖：填土太高 → 止步不填、不外扩
+                height[(nz, nxx)] = nh
+                continue
+            # 填这一列：ground+1..top-1 填土，top 顶层材质
+            xw, zw = ctx.s2w(nxx, nz)
+            for yy in range(ground + 1, top):
+                fill_blocks.append((xw, yy, zw, fill_block))
+            fill_blocks.append((xw, top, zw, top_block))
+            n_cols += 1
+            height[(nz, nxx)] = nh
+            q.append((nz, nxx))
+
+    return TerraformResult(
+        success=bool(fill_blocks), base_y=int(base_y),
+        fill_blocks=fill_blocks, cut_blocks=[],
+        reason=f"talus_apron(cols={n_cols})")
 
 
 def terraform_water_stilt(footprint_xz: tuple,

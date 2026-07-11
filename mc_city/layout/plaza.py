@@ -26,6 +26,7 @@
 """
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 import numpy as np
@@ -36,6 +37,11 @@ from ..config import (
     PLAZA_MAX_CUT,
     PLAZA_PADDING,
     PLAZA_RADIUS,
+    PLAZA_SKIRT_ENABLED,
+    PLAZA_SKIRT_MAX_FILL,
+    PLAZA_SKIRT_RING_WIDTH,
+    PLAZA_SKIRT_RINGS,
+    PLAZA_SKIRT_STEP,
     PLAZA_SUB_MATERIAL,
 )
 from ..mc.placement import set_blocks_batch
@@ -98,7 +104,7 @@ def build_central_plaza(center_x: int, center_z: int,
         实际写入的方块数（fill + cut 总数）。
     """
     _ = codec
-    payloads, _, _, n_skip = build_plaza_payloads(
+    payloads, _, _, n_skip, n_skirt = build_plaza_payloads(
         center_x, center_z, base_y, height_map, ctx,
         tree_half_x=tree_half_x, tree_half_z=tree_half_z,
         plaza_padding=plaza_padding, radius=radius, factor=factor,
@@ -107,6 +113,8 @@ def build_central_plaza(center_x: int, center_z: int,
     )
     if n_skip:
         print(f"  依山而建：跳过 {n_skip} 列陡坡（凿深>{max_cut}），保留原地形")
+    if n_skirt:
+        print(f"  裙边台阶：外缘 {n_skirt} 列逐级放坡（收边，消悬空石板感）")
     if not payloads:
         print("  没有可放置的广场方块")
         return 0
@@ -134,12 +142,17 @@ def build_plaza_payloads(center_x: int, center_z: int,
                          top_material: str = PLAZA_MATERIAL,
                          sub_material: str = PLAZA_SUB_MATERIAL,
                          max_cut: int = PLAZA_MAX_CUT,
-                         ) -> tuple[list[dict], int, int, int]:
+                         skirt: bool = PLAZA_SKIRT_ENABLED,
+                         skirt_rings: int = PLAZA_SKIRT_RINGS,
+                         skirt_step: int = PLAZA_SKIRT_STEP,
+                         skirt_ring_width: int = PLAZA_SKIRT_RING_WIDTH,
+                         skirt_max_fill: int = PLAZA_SKIRT_MAX_FILL,
+                         ) -> tuple[list[dict], int, int, int, int]:
     """构造广场 payload（八角环：八角形减去树 footprint 矩形）。
 
-    Returns (payloads, n_fill_cols, n_cut_cols, n_skip_cols)。
+    Returns (payloads, n_fill_cols, n_cut_cols, n_skip_cols, n_skirt_cols)。
     n_fill_cols: 填土列；n_cut_cols: 凿空列；n_skip_cols: 凿深>max_cut 跳过的陡坡列
-    （依山而建，保留原地形，不凿沟）。
+    （依山而建，保留原地形，不凿沟）；n_skirt_cols: 裙边台阶列（收边放坡）。
     """
     NZ, NX = height_map.shape
     scx, scz = ctx.w2s(int(center_x), int(center_z))
@@ -184,7 +197,40 @@ def build_plaza_payloads(center_x: int, center_z: int,
             payloads.append({"x": int(wx), "y": int(base_y), "z": int(wz),
                              "id": top_material})
 
-    return payloads, n_fill, n_cut, n_skip
+    # ── 裙边台阶（收边）：广场外缘 skirt_rings 个同心环逐级下降到地形 ──
+    # 只填不凿：下坡列填到该级台面，上坡列（地形已高于台面）保留原地形（依山而建）。
+    # 把一堵笔直挡土墙拆成若干级 skirt_step 高的小台阶，消除悬空石板般的突兀感。
+    n_skirt = 0
+    if skirt and skirt_rings > 0 and skirt_ring_width > 0:
+        # g = 到中心的"八角度量"，g<=radius 即广场内；正好与 plaza_mask 同判据。
+        zs_all, xs_all = np.indices((NZ, NX), dtype=np.float64)
+        dxf = np.abs(xs_all - scx)
+        dzf = np.abs(zs_all - scz)
+        g = np.maximum(np.maximum(dxf, dzf), (dxf + dzf) / float(factor))
+        skirt_outer = radius + skirt_rings * skirt_ring_width
+        skirt_sel = (g > radius) & (g <= skirt_outer)
+        s_zs, s_xs = np.where(skirt_sel)
+        for sz, sx in zip(s_zs.tolist(), s_xs.tolist()):
+            ground_y = int(height_map[sz, sx])
+            if ground_y <= int(ctx.min_y):
+                continue  # sentinel 列跳过
+            # 该列属第几级台阶（1..skirt_rings，越外越低）
+            level = int(math.ceil((g[sz, sx] - radius) / skirt_ring_width))
+            level = max(1, min(int(skirt_rings), level))
+            terrace_y = base_y - level * skirt_step
+            if ground_y >= terrace_y:
+                continue  # 上坡：地形已到/高于台面 → 保留原地形，不铺
+            if terrace_y - ground_y > skirt_max_fill:
+                continue  # 深谷：填土太高会起孤柱 → 跳过，不硬撑
+            wx, wz = ctx.s2w(int(sx), int(sz))
+            for y in range(ground_y + 1, terrace_y):
+                payloads.append({"x": int(wx), "y": int(y), "z": int(wz),
+                                 "id": sub_material})
+            payloads.append({"x": int(wx), "y": int(terrace_y), "z": int(wz),
+                             "id": top_material})
+            n_skirt += 1
+
+    return payloads, n_fill, n_cut, n_skip, n_skirt
 
 
 # ── 八角形 mask 工具 ──────────────────────────────────────────────
